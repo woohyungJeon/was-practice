@@ -1,18 +1,20 @@
 package org.example;
 
-import org.example.calculator.domain.Calculator;
-import org.example.calculator.domain.PositiveNumber;
+import org.example.calculator.ClientRequestHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.xml.xpath.XPath;
-import java.io.*;
+import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class CustomWebApplicationServer {
     private final int port;
+    
+    //10개의 쓰레드를 미리 만들어둠
+    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
     private final Logger logger = LoggerFactory.getLogger(CustomWebApplicationServer.class);
     public CustomWebApplicationServer(int port) {
@@ -29,29 +31,18 @@ public class CustomWebApplicationServer {
             while((clientSocket = serverSocket.accept()) != null){
                 logger.info("[CustonWebApplicationServer] client connected!");
 
+                executorService.execute(new ClientRequestHandler(clientSocket));
+                //                Step2 - 사용자 요청이 들어올 때마다 Thread를 새로 생성해서 사용자 요청을 처리
+//                하도록 한다.
+                /*쓰레드가 생성될때마다 메모리를 할당해주면 성능이 떨어지게됨
+                        동시 접속자수가 많은 경우에는 많은 쓰레드가 생성되는데 CPU컴텍스트 스위칭횟수와 메모리 사용량이 증가해서
+                        최악의 경우에는 서버의 리소스 한계로 서버가 다운될 가능성이 있음*/
+//                new Thread(new ClientRequestHandler(clientSocket)).start();
+
+
+
 //                step1 - 사용자 요청을 메인 Thread가 처리하도록 한다.
-
-                try(InputStream in =clientSocket.getInputStream(); OutputStream out = clientSocket.getOutputStream()){
-                    BufferedReader br = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8));
-                    DataOutputStream dos = new DataOutputStream(out);
-                    
                     //클라이언트로 입력된걸 버퍼리더로 HttpRequest에 보내줌
-                    HttpRequest httpRequest = new HttpRequest(br);
-
-                    //GET /calculate?operand1=11& operator=* &operand2=55
-                    if (httpRequest.isGetRequest() && httpRequest.matchPath("/calculate")) {
-                        QueryStrings queryStrings = httpRequest.getQueryStrings();
-
-                        int operand1 = Integer.parseInt(queryStrings.getValue("operand1"));
-                        String operator = queryStrings.getValue("operator");
-                        int operand2 = Integer.parseInt(queryStrings.getValue("operand2"));
-
-                        int result = Calculator.calculate(new PositiveNumber(operand1), operator, new PositiveNumber(operand1));
-
-                        HttpResponse response = new HttpResponse(dos);
-
-                    }
-
 //                    String line;
 //                    while((line = br.readLine()) != ""){
 //                        System.out.println(line);
@@ -67,4 +58,4 @@ public class CustomWebApplicationServer {
             }
         }
     }
-}
+
